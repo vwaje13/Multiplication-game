@@ -4,10 +4,11 @@
 .extern turn    # Externally defined variable, assuming it's 1 word long
 PlayerWinMssg: .asciiz "Player Wins!\n"
 CompWinMssg: .asciiz "Computer Wins!\n"
+DrawMssg: .asciiz "It's a draw!\n"
+
 .text
 
 # Part a
-
 # Function to check for horizontal win condition
 .globl checkHorizontalWin
 checkHorizontalWin:
@@ -69,7 +70,7 @@ next_row_horizontal:
 
 end_horizontal_check:
     li $v0, 0             # No win found
-    jr $ra
+    j checkForDraw
 
 win_horizontal:
     lw $t9, turn               # Win found
@@ -142,7 +143,7 @@ next_column_vertical:
 
 end_vertical_check:
     li $v0, 0            # No win found
-    jr $ra
+    j checkForDraw
 
 win_vertical:
     lw $t9, turn
@@ -209,7 +210,7 @@ checkDiagonalWinAscending:
 
     end_ascending_check:
         li $v0, 0          # No win found
-        jr $ra
+        j checkForDraw
 
 win_diagonal_ascending:
      lw $t9, turn             # Win found
@@ -274,6 +275,10 @@ checkDiagonalWinDescending:
         addi $t1, $t1, 6   # Move to the next row to start checking next diagonal
         blt $t1, 18, descending_diagonal_loop # If index is valid, check next diagonal
         j end_descending_check # Otherwise, we've checked all possible diagonals
+
+    end_descending_check:
+        li $v0, 0          # No win found
+        j checkForDraw     # Jump to check for draw before returning
         
 win_diagonal_descending:
      lw $t9, turn             # Win found
@@ -295,6 +300,72 @@ compWin:
 exitProgram:
     li $v0, 10                 # syscall for exit
     syscall
+    
+# Part b
+# Validates move and checks for draw
+.globl checkForDraw
+checkForDraw:
+    la $t0, slider        # Load base address of the slider array
+    la $t1, status        # Load base address of the status array
+    la $t2, board         # Load base address of the board array
+    li $t3, 0             # Initialize outer loop counter
+    li $t4, 9             # Total slider positions
+
+# Loop over slider positions (outer loop)
+slider_check_outer:
+    bge $t3, $t4, check_draw  # If we've checked all positions, check for draw
+    addi $t5, $t3, 1       # Slider value at outer loop position
+    
+    li $t6, 0             # Initialize inner loop counter
+# Loop over slider positions (inner loop)
+slider_check_inner:
+    bge $t6, $t4, update_outer_counter  # If we've checked all positions, go to next position 1
+    addi $t7, $t6, 1       # Slider value at inner loop position
+
+    mul $t8, $t5, $t7      # Compute the product for the move
+
+    # Now we need to find the index of this product in the board array
+    li $t9, 0              # Initialize index for board array
+    li $t10, 36            # Total number of positions in the board
+    
+find_product_index:
+    bge $t9, $t10, update_inner_counter  # If we've reached end of board, go to next slider position
+    lw $t11, 0($t2)       # Load the value at current board index
+    beq $t8, $t11, check_status  # If product is found, check status
+    addi $t9, $t9, 1      # Increment board index
+    addi $t2, $t2, 4      # Move to the next word in the board array
+    j find_product_index
+
+check_status:
+    # Check if the corresponding status index is unoccupied
+    lw $t12, 0($t1)       # Load the status at the found index
+    beq $t12, 0, valid_move_found  # If unoccupied, a valid move is found, exit the check
+
+update_inner_counter:
+    addi $t6, $t6, 1      # Increment inner loop counter
+    j slider_check_inner
+
+update_outer_counter:
+    addi $t3, $t3, 1      # Increment outer loop counter
+    j slider_check_outer
+
+check_draw:
+    # If no valid moves were found, declare a draw
+    li $v0, 4             # syscall for print string
+    la $a0, DrawMssg      # Load address of draw message
+    syscall
+    li $v0, 10            # syscall for exit
+    syscall
+
+valid_move_found:
+    # If a valid move is found, simply return
+    j jumpToMain
+    
+# Part c
+.globl jumpToMain
+jumpToMain:
+    j main         # Jump to the main label
+    nop            # Following the jump with a nop is a good practice to handle the delay slot
 
 
-
+    
