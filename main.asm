@@ -10,7 +10,6 @@
 	li $v0, 42
    	li $a1, 9
 	syscall
-	addi $a0, $a0, 1
 	mul $a0, $a0, 4
     	
     	li $t0, 1
